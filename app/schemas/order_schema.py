@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from product_schema import OutputProduct
+from app.schemas.product_schema import OutputProduct
 
 
 class BaseItem(BaseModel):
@@ -9,7 +9,7 @@ class BaseItem(BaseModel):
 
 
 class InputOrder(BaseModel):
-    items: list[BaseItem] = Field(..., min_length=1)
+    items: list[BaseItem] = Field(...)
 
 
 class OutputOrder(BaseModel):

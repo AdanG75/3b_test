@@ -3,8 +3,8 @@ import uuid
 
 from fastapi import FastAPI, Body, Path, Query, status, HTTPException
 
-from schemas.order_schema import InputOrder, OutputOrder
-from schemas.product_schema import InputProduct, OutputProduct
+from app.schemas.order_schema import InputOrder, OutputOrder
+from app.schemas.product_schema import InputProduct, OutputProduct
 
 
 app = FastAPI()
@@ -17,13 +17,31 @@ inventory = {}
 orders = {}
 
 
+@app.get(
+    path="/api/product/{product_id}",
+    response_model=OutputProduct,
+    status_code=status.HTTP_200_OK,
+    tags=["Products"]
+)
+async def get_products(product_id: str = Path(..., min_length=31, max_length=39)) -> OutputProduct:
+    product = inventory.get(product_id, None)
+
+    if product is not None:
+        return OutputProduct(**product)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Product not found"
+    )
+
+
 @app.post(
-    path="/api/products/{product}",
+    path="/api/products",
     response_model=OutputProduct,
     status_code=status.HTTP_201_CREATED,
     tags=["Products"]
 )
-def create_product(product: InputProduct = Body(...)) -> OutputProduct:
+async def create_product(product: InputProduct = Body(...)) -> OutputProduct:
     sku = str(uuid.uuid4())
     quantity = DEFAULT_QUANTITY
 
@@ -37,13 +55,27 @@ def create_product(product: InputProduct = Body(...)) -> OutputProduct:
     return OutputProduct(**inventory[sku])
 
 
+@app.get(
+    path="/api/products",
+    response_model=list[OutputProduct],
+    status_code=status.HTTP_200_OK,
+    tags=["Products"]
+)
+async def get_products() -> list[OutputProduct]:
+    products = []
+    for product in inventory.values():
+        products.append(OutputProduct(**product))
+
+    return products
+
+
 @app.patch(
     path="/api/inventories/product/{product_id}",
     response_model=OutputProduct,
     status_code=status.HTTP_200_OK,
     tags=["Products"]
 )
-def increment_stock(
+async def increment_stock(
         product_id: str = Path(...),
         quantity: Union[int, None] = Query(None)
 ) -> OutputProduct:
@@ -65,7 +97,7 @@ def increment_stock(
     status_code=status.HTTP_201_CREATED,
     tags=["Orders"]
 )
-def create_order(order: InputOrder = Body(...)) -> OutputOrder:
+async def create_order(order: InputOrder = Body(...)) -> OutputOrder:
     if len(order.items) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -118,7 +150,8 @@ def create_order(order: InputOrder = Body(...)) -> OutputOrder:
 
     orders[order_id] = OutputOrder(
         items=products_to_buy,
-        total=total
+        total=total,
+        detail=detail
     )
 
     return orders[order_id]
